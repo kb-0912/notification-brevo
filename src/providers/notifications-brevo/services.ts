@@ -34,6 +34,13 @@ class BrevoProviderService extends AbstractNotificationProviderService {
 		// Lazy-load @getbrevo/brevo inside constructor — NOT top-level import.
 		// The SDK's Fern runtime.js reads navigator.userAgent at module load time,
 		// which crashes in Node.js if imported at the top of the file.
+		// Polyfill navigator so the SDK doesn't crash on `window.navigator.userAgent`.
+		if (typeof globalThis.navigator === "undefined") {
+			(globalThis as any).navigator = { userAgent: "node" }
+		}
+		if (typeof (globalThis as any).window === "undefined") {
+			(globalThis as any).window = { navigator: globalThis.navigator }
+		}
 		// eslint-disable-next-line @typescript-eslint/no-var-requires
 		const { BrevoClient } = require("@getbrevo/brevo")
 		this.brevo = new BrevoClient({ apiKey: this.options.apiKey })
