@@ -1,0 +1,14 @@
+import { Migration } from "@medusajs/framework/mikro-orm/migrations";
+
+export class Migration20260306173214 extends Migration {
+
+  override async up(): Promise<void> {
+    this.addSql(`create table if not exists "brevo_settings" ("id" text not null, "order_placed_template_id" text null, "order_canceled_template_id" text null, "order_delivered_template_id" text null, "customer_created_template_id" text null, "promotion_new_customer_template_id" text null, "shipment_confirmed_template_id" text null, "abandoned_cart_template_id" text null, "review_request_template_id" text null, "winback_template_id" text null, "sender_name" text null, "order_placed_enabled" boolean not null default true, "order_canceled_enabled" boolean not null default true, "order_delivered_enabled" boolean not null default true, "customer_created_enabled" boolean not null default true, "promotion_enabled" boolean not null default true, "shipment_confirmed_enabled" boolean not null default true, "abandoned_cart_enabled" boolean not null default false, "abandoned_cart_intervals" jsonb null, "abandoned_cart_max_emails" integer not null default 3, "abandoned_cart_discount_enabled" boolean not null default false, "abandoned_cart_discount_type" text not null default 'percentage', "abandoned_cart_discount_value" integer not null default 10, "abandoned_cart_discount_max_uses" integer not null default 1, "abandoned_cart_discount_expires_hours" integer not null default 48, "abandoned_cart_discount_template_id" text null, "contact_sync_enabled" boolean not null default false, "contact_sync_list_id" integer null, "event_tracking_enabled" boolean not null default false, "review_request_enabled" boolean not null default false, "review_request_days_after" integer not null default 7, "winback_enabled" boolean not null default false, "winback_days_inactive" integer not null default 30, "multilang_enabled" boolean not null default false, "multilang_templates" jsonb null, "webhook_enabled" boolean not null default false, "webhook_secret" text null, "whatsapp_enabled" boolean not null default false, "whatsapp_order_placed_template" text null, "whatsapp_shipment_template" text null, "whatsapp_abandoned_cart_template" text null, "sms_enabled" boolean not null default false, "sms_sender" text null, "sms_order_placed_content" text null, "sms_shipment_content" text null, "created_at" timestamptz not null default now(), "updated_at" timestamptz not null default now(), "deleted_at" timestamptz null, constraint "brevo_settings_pkey" primary key ("id"));`);
+    this.addSql(`CREATE INDEX IF NOT EXISTS "IDX_brevo_settings_deleted_at" ON "brevo_settings" ("deleted_at") WHERE deleted_at IS NULL;`);
+  }
+
+  override async down(): Promise<void> {
+    this.addSql(`drop table if exists "brevo_settings" cascade;`);
+  }
+
+}
