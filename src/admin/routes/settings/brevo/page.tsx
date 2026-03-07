@@ -4,26 +4,111 @@ import { EnvelopeSolid } from "@medusajs/icons"
 import { useEffect, useState } from "react"
 
 type BrevoSettings = Record<string, any>
+type SelectOption = { value: string; label: string }
+
+/**
+ * Reusable multi-select modal with search.
+ */
+const MultiSelectModal = ({
+    title,
+    options,
+    selected,
+    onClose,
+    onSave,
+}: {
+    title: string
+    options: SelectOption[]
+    selected: string[]
+    onClose: () => void
+    onSave: (values: string[]) => void
+}) => {
+    const [search, setSearch] = useState("")
+    const [checked, setChecked] = useState<Set<string>>(new Set(selected))
+
+    const filtered = options.filter((o) =>
+        o.label.toLowerCase().includes(search.toLowerCase()) ||
+        o.value.toLowerCase().includes(search.toLowerCase())
+    )
+
+    const toggle = (val: string) => {
+        setChecked((prev) => {
+            const next = new Set(prev)
+            next.has(val) ? next.delete(val) : next.add(val)
+            return next
+        })
+    }
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+            <div className="bg-white rounded-xl shadow-2xl w-[420px] max-h-[520px] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                <div className="px-5 py-4 border-b">
+                    <Text className="font-semibold text-base">{title}</Text>
+                    <Input className="mt-2" placeholder="Search..." value={search}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)} />
+                </div>
+                <div className="flex-1 overflow-y-auto px-5 py-3">
+                    {filtered.length === 0 && <Text className="text-ui-fg-subtle text-sm">No results</Text>}
+                    {filtered.map((opt) => (
+                        <label key={opt.value} className="flex items-center gap-3 py-1.5 cursor-pointer hover:bg-ui-bg-base-hover rounded px-2 -mx-2">
+                            <input type="checkbox" className="accent-ui-fg-interactive w-4 h-4"
+                                checked={checked.has(opt.value)}
+                                onChange={() => toggle(opt.value)} />
+                            <span className="text-sm">{opt.label}</span>
+                            <span className="text-xs text-ui-fg-subtle font-mono ml-auto">{opt.value.toUpperCase()}</span>
+                        </label>
+                    ))}
+                </div>
+                <div className="px-5 py-3 border-t flex items-center justify-between">
+                    <Text className="text-xs text-ui-fg-subtle">{checked.size} selected</Text>
+                    <div className="flex gap-2">
+                        <Button variant="secondary" size="small" onClick={onClose}>Cancel</Button>
+                        <Button size="small" onClick={() => { onSave(Array.from(checked)); onClose() }}>Apply</Button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
 
 const BrevoSettingsPage = () => {
     const [settings, setSettings] = useState<BrevoSettings | null>(null)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [intervalsText, setIntervalsText] = useState("")
-    const [currencies, setCurrencies] = useState<string[]>([])
+    const [currencies, setCurrencies] = useState<SelectOption[]>([])
+    const [countries, setCountries] = useState<SelectOption[]>([])
+    const [modal, setModal] = useState<{ key: string; title: string; options: SelectOption[] } | null>(null)
 
     useEffect(() => {
         Promise.all([
             fetch("/admin/brevo-plugin-settings", { credentials: "include" }).then(r => r.json()),
             fetch("/admin/currencies", { credentials: "include" }).then(r => r.json()).catch(() => ({ currencies: [] })),
-        ]).then(([settingsData, currData]) => {
+            fetch("/admin/regions", { credentials: "include" }).then(r => r.json()).catch(() => ({ regions: [] })),
+        ]).then(([settingsData, currData, regionData]) => {
             setSettings(settingsData.settings)
             const intervals = Array.isArray(settingsData.settings.abandoned_cart_intervals)
                 ? settingsData.settings.abandoned_cart_intervals
                 : []
             setIntervalsText(intervals.join(", "))
-            const codes = (currData.currencies || []).map((c: any) => c.code).filter(Boolean).sort()
-            setCurrencies(codes)
+            const currOpts = (currData.currencies || []).map((c: any) => ({
+                value: c.code, label: `${c.name || c.code.toUpperCase()} (${c.code.toUpperCase()})`,
+            })).sort((a: SelectOption, b: SelectOption) => a.label.localeCompare(b.label))
+            setCurrencies(currOpts)
+
+            // Extract unique countries from all regions
+            const countryMap = new Map<string, string>()
+            for (const region of (regionData.regions || [])) {
+                for (const c of (region.countries || [])) {
+                    if (c.iso_2 && !countryMap.has(c.iso_2)) {
+                        countryMap.set(c.iso_2, c.display_name || c.name || c.iso_2.toUpperCase())
+                    }
+                }
+            }
+            const countryOpts = Array.from(countryMap.entries()).map(([code, name]) => ({
+                value: code, label: name,
+            })).sort((a, b) => a.label.localeCompare(b.label))
+            setCountries(countryOpts)
+
             setLoading(false)
         }).catch(() => {
             toast.error("Failed to load Brevo settings")
@@ -199,59 +284,32 @@ const BrevoSettingsPage = () => {
                             </div>
                             <div className="col-span-2">
                                 <Label>Excluded Currencies</Label>
-                                <Text className="text-ui-fg-subtle text-xs mb-2">Discount will NOT apply to orders in these currencies. Click to toggle.</Text>
-                                <div className="flex flex-wrap gap-1">
-                                    {currencies.map((cur: string) => {
-                                        const excluded = (Array.isArray(settings.promotion_excluded_currencies) ? settings.promotion_excluded_currencies : []) as string[]
-                                        const isExcluded = excluded.includes(cur)
-                                        return (
-                                            <button key={cur} type="button"
-                                                className={`px-2 py-1 rounded text-xs font-mono border transition-colors ${isExcluded ? "bg-red-100 border-red-300 text-red-700" : "bg-ui-bg-base border-ui-border-base text-ui-fg-subtle hover:bg-ui-bg-base-hover"}`}
-                                                onClick={() => {
-                                                    const next = isExcluded ? excluded.filter((c: string) => c !== cur) : [...excluded, cur]
-                                                    update("promotion_excluded_currencies", next)
-                                                }}>
-                                                {cur.toUpperCase()}{isExcluded ? " ✕" : ""}
-                                            </button>
-                                        )
-                                    })}
-                                    {currencies.length === 0 && <Text className="text-ui-fg-subtle text-xs">No currencies found in store.</Text>}
+                                <Text className="text-ui-fg-subtle text-xs mb-2">Discount will NOT apply to orders in these currencies.</Text>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <Button variant="secondary" size="small" onClick={() => setModal({ key: "promotion_excluded_currencies", title: "Select Excluded Currencies", options: currencies })}>
+                                        Select Currencies
+                                    </Button>
+                                    <div className="flex flex-wrap gap-1">
+                                        {((settings.promotion_excluded_currencies || []) as string[]).map((c: string) => (
+                                            <Badge key={c} color="red" className="font-mono text-xs">{c.toUpperCase()}</Badge>
+                                        ))}
+                                        {(settings.promotion_excluded_currencies || []).length === 0 && <Text className="text-ui-fg-subtle text-xs">None</Text>}
+                                    </div>
                                 </div>
                             </div>
                             <div className="col-span-2">
                                 <Label>Excluded Countries</Label>
-                                <Text className="text-ui-fg-subtle text-xs mb-2">Customers from these countries will NOT receive a promotion code. Checks shipping address country code & phone prefix.</Text>
-                                <div className="flex flex-wrap gap-1">
-                                    {[
-                                        { code: "vn", label: "🇻🇳 VN" },
-                                        { code: "th", label: "🇹🇭 TH" },
-                                        { code: "ko", label: "🇰🇷 KR" },
-                                        { code: "ja", label: "🇯🇵 JP" },
-                                        { code: "cn", label: "🇨🇳 CN" },
-                                        { code: "us", label: "🇺🇸 US" },
-                                        { code: "gb", label: "🇬🇧 GB" },
-                                        { code: "sg", label: "🇸🇬 SG" },
-                                        { code: "my", label: "🇲🇾 MY" },
-                                        { code: "id", label: "🇮🇩 ID" },
-                                        { code: "ph", label: "🇵🇭 PH" },
-                                        { code: "au", label: "🇦🇺 AU" },
-                                        { code: "in", label: "🇮🇳 IN" },
-                                        { code: "tw", label: "🇹🇼 TW" },
-                                        { code: "hk", label: "🇭🇰 HK" },
-                                    ].map((country) => {
-                                        const excluded = (Array.isArray(settings.promotion_excluded_countries) ? settings.promotion_excluded_countries : []) as string[]
-                                        const isExcluded = excluded.includes(country.code)
-                                        return (
-                                            <button key={country.code} type="button"
-                                                className={`px-2 py-1 rounded text-xs border transition-colors ${isExcluded ? "bg-red-100 border-red-300 text-red-700" : "bg-ui-bg-base border-ui-border-base text-ui-fg-subtle hover:bg-ui-bg-base-hover"}`}
-                                                onClick={() => {
-                                                    const next = isExcluded ? excluded.filter((c: string) => c !== country.code) : [...excluded, country.code]
-                                                    update("promotion_excluded_countries", next)
-                                                }}>
-                                                {country.label}{isExcluded ? " ✕" : ""}
-                                            </button>
-                                        )
-                                    })}
+                                <Text className="text-ui-fg-subtle text-xs mb-2">Customers from these countries will NOT receive a promotion code.</Text>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <Button variant="secondary" size="small" onClick={() => setModal({ key: "promotion_excluded_countries", title: "Select Excluded Countries", options: countries })}>
+                                        Select Countries
+                                    </Button>
+                                    <div className="flex flex-wrap gap-1">
+                                        {((settings.promotion_excluded_countries || []) as string[]).map((c: string) => (
+                                            <Badge key={c} color="red" className="font-mono text-xs">{c.toUpperCase()}</Badge>
+                                        ))}
+                                        {(settings.promotion_excluded_countries || []).length === 0 && <Text className="text-ui-fg-subtle text-xs">None</Text>}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -363,23 +421,32 @@ const BrevoSettingsPage = () => {
                                     </div>
                                     <div className="col-span-2">
                                         <Label>Excluded Currencies</Label>
-                                        <Text className="text-ui-fg-subtle text-xs mb-2">Discount will NOT apply to orders in these currencies. Click to toggle.</Text>
-                                        <div className="flex flex-wrap gap-1">
-                                            {currencies.map((cur: string) => {
-                                                const excluded = (Array.isArray(settings.abandoned_cart_discount_excluded_currencies) ? settings.abandoned_cart_discount_excluded_currencies : []) as string[]
-                                                const isExcluded = excluded.includes(cur)
-                                                return (
-                                                    <button key={cur} type="button"
-                                                        className={`px-2 py-1 rounded text-xs font-mono border transition-colors ${isExcluded ? "bg-red-100 border-red-300 text-red-700" : "bg-ui-bg-base border-ui-border-base text-ui-fg-subtle hover:bg-ui-bg-base-hover"}`}
-                                                        onClick={() => {
-                                                            const next = isExcluded ? excluded.filter((c: string) => c !== cur) : [...excluded, cur]
-                                                            update("abandoned_cart_discount_excluded_currencies", next)
-                                                        }}>
-                                                        {cur.toUpperCase()}{isExcluded ? " ✕" : ""}
-                                                    </button>
-                                                )
-                                            })}
-                                            {currencies.length === 0 && <Text className="text-ui-fg-subtle text-xs">No currencies found in store.</Text>}
+                                        <Text className="text-ui-fg-subtle text-xs mb-2">Discount will NOT apply to orders in these currencies.</Text>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <Button variant="secondary" size="small" onClick={() => setModal({ key: "abandoned_cart_discount_excluded_currencies", title: "Select Excluded Currencies", options: currencies })}>
+                                                Select Currencies
+                                            </Button>
+                                            <div className="flex flex-wrap gap-1">
+                                                {((settings.abandoned_cart_discount_excluded_currencies || []) as string[]).map((c: string) => (
+                                                    <Badge key={c} color="red" className="font-mono text-xs">{c.toUpperCase()}</Badge>
+                                                ))}
+                                                {(settings.abandoned_cart_discount_excluded_currencies || []).length === 0 && <Text className="text-ui-fg-subtle text-xs">None</Text>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <Label>Excluded Countries</Label>
+                                        <Text className="text-ui-fg-subtle text-xs mb-2">Customers from these countries will NOT receive a discount code.</Text>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <Button variant="secondary" size="small" onClick={() => setModal({ key: "promotion_excluded_countries", title: "Select Excluded Countries", options: countries })}>
+                                                Select Countries
+                                            </Button>
+                                            <div className="flex flex-wrap gap-1">
+                                                {((settings.promotion_excluded_countries || []) as string[]).map((c: string) => (
+                                                    <Badge key={c} color="red" className="font-mono text-xs">{c.toUpperCase()}</Badge>
+                                                ))}
+                                                {(settings.promotion_excluded_countries || []).length === 0 && <Text className="text-ui-fg-subtle text-xs">None</Text>}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -696,6 +763,17 @@ const BrevoSettingsPage = () => {
                     )}
                 </div>
             </Container >
+
+            {/* Multi-select Modal */}
+            {modal && settings && (
+                <MultiSelectModal
+                    title={modal.title}
+                    options={modal.options}
+                    selected={(settings[modal.key] || []) as string[]}
+                    onClose={() => setModal(null)}
+                    onSave={(values) => update(modal.key, values)}
+                />
+            )}
         </>
     )
 }

@@ -214,6 +214,15 @@
           "nullable": true,
           "mappedType": "json"
         },
+        "promotion_excluded_countries": {
+          "name": "promotion_excluded_countries",
+          "type": "jsonb",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "json"
+        },
         "promotion_code_prefix": {
           "name": "promotion_code_prefix",
           "type": "text",
