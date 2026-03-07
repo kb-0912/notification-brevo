@@ -1,0 +1,218 @@
+<body>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>Xác Nhận Đơn Hàng #{{ params.display_id }}</title>
+    <style type="text/css">
+        a {
+            color: inherit !important;
+            text-decoration: none;
+            font-size: inherit !important;
+            font-family: inherit !important;
+            font-weight: inherit !important;
+            line-height: inherit !important;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            color: #333;
+        }
+    </style>
+
+    <header>
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse: collapse;">
+            <tbody>
+                <tr>
+                    <td align="center" style="padding-top: 80px;">
+                        <a href="https://fragile.club"><img width="200px"
+                                src="https://fragile.club/new_logo_r_black.png" style="max-width: 100%;"></a>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </header>
+
+    <div style="max-width:600px;margin:20px auto 40px;padding:0 20px;">
+        <table width="100%" style="border-collapse: collapse;">
+            <tbody>
+                <tr>
+                    <td align="center"><span style="font-size:16px;font-weight:500;">XÁC NHẬN ĐƠN HÀNG</span></td>
+                </tr>
+                <tr style="height:20px;"></tr>
+                <tr>
+                    <td style="line-height: 18px;"><span style="font-size:12px;">
+                            {{ params.customer_name }} thân mến,
+                            <br><br>
+                            Cảm ơn bạn đã mua sắm tại <span>FRAGILE</span>. Khi đơn hàng được xử lý, bạn sẽ nhận được
+                            email xác nhận vận chuyển kèm mã theo dõi.
+                            <br><br>
+                            Dưới đây là bản sao biên lai và thông tin đơn hàng. Vui lòng lưu giữ để tham khảo.
+                            <br><br>
+                            Nếu bạn có bất kỳ câu hỏi nào về đơn hàng, vui lòng <a
+                                href="https://fragile.club/support">liên hệ với chúng tôi</a>.
+                        </span></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <table width="100%" style="border-collapse: collapse;">
+            <tbody>
+                <tr>
+                    <td colspan="3"><span style="font-size:12px;font-weight:500;">ĐƠN HÀNG #{{ params.display_id
+                            }}</span></td>
+                </tr>
+                <tr style="height:5px;"></tr>
+                <tr>
+                    <td colspan="3"><span style="font-size:12px;">Ngày đặt: {{ params.date_placed }}</span></td>
+                </tr>
+                <tr style="height:20px;"></tr>
+                <tr>
+                    <td width="50%" style="vertical-align: top; line-height: 17px;">
+                        <table width="100%">
+                            <tbody>
+                                <tr>
+                                    <td><span style="font-size:12px;font-weight:500;">PHƯƠNG THỨC VẬN CHUYỂN</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span style="font-size:12px;">{% for shipping_method in params.shipping_methods
+                                            %}{{ shipping_method.name }}<br>{% endfor %}</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </td>
+                    <td width="50%" style="vertical-align: top; line-height: 17px;">
+                        <table width="100%">
+                            <tbody>
+                                <tr>
+                                    <td><span style="font-size:12px;font-weight:500;">PHƯƠNG THỨC THANH TOÁN</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span style="font-size:12px;text-transform:capitalize;">{% for payment in
+                                            params.payment_collections %}{{ payment.provider_id }}<br>{% endfor
+                                            %}</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td width="50%" style="vertical-align: top; line-height: 17px;">
+                        <table width="100%">
+                            <tbody>
+                                <tr>
+                                    <td><span style="font-size:12px;font-weight:500;">ĐỊA CHỈ GIAO HÀNG</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span style="font-size:12px;">
+                                            {{ params.shipping_address.first_name }} {{
+                                            params.shipping_address.last_name }}<br>
+                                            {{ params.shipping_address.address_1 }}<br>
+                                            {% if params.shipping_address.address_2 != "" %}{{
+                                            params.shipping_address.address_2 }}<br>{% endif %}
+                                            {{ params.shipping_address.city }}, {{ params.shipping_address.province
+                                            }}<br>
+                                            {{ params.shipping_address.country_code }} {{
+                                            params.shipping_address.postal_code }}<br>
+                                            {{ params.shipping_address.phone }}
+                                        </span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </td>
+                    <td width="50%" style="vertical-align: top; line-height: 17px;">
+                        <table width="100%">
+                            <tbody>
+                                <tr>
+                                    <td><span style="font-size:12px;font-weight:500;">ĐỊA CHỈ THANH TOÁN</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span style="font-size:12px;">
+                                            {{ params.billing_address.first_name }} {{ params.billing_address.last_name
+                                            }}<br>
+                                            {{ params.billing_address.address_1 }}<br>
+                                            {% if params.billing_address.address_2 != "" %}{{
+                                            params.billing_address.address_2 }}<br>{% endif %}
+                                            {{ params.billing_address.city }}, {{ params.billing_address.province }}<br>
+                                            {{ params.billing_address.country_code }} {{
+                                            params.billing_address.postal_code }}<br>
+                                            {{ params.billing_address.phone }}
+                                        </span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <table width="100%" style="border-collapse: collapse;">
+            <tbody>
+                <tr style="height:20px;"></tr>
+                <tr>
+                    <td>
+                        {% for item in params.items %}
+                        <table width="100%" style="margin-bottom: 20px;border-bottom: 1px solid #eee;">
+                            <tbody>
+                                <tr>
+                                    <td width="18%" style="vertical-align: top; padding-right: 20px;">
+                                        <img src="{{ item.thumbnail }}" alt="{{ item.title }}" style="max-width: 100%;">
+                                    </td>
+                                    <td width="67%" style="vertical-align: top; padding-right: 20px;">
+                                        <span style="font-size:12px;">{{ item.title }}<br>Size: {{ item.variant_title
+                                            }}<br>SL: {{ item.quantity }}</span>
+                                    </td>
+                                    <td width="15%" align="right" style="vertical-align: top;">
+                                        <span style="font-size:12px;">{{ item.quantity }} x {{ item.unit_price }}</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        {% endfor %}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <table width="100%" style="background-color: #f3f3f3; padding: 20px; border-collapse: collapse;">
+            <tbody>
+                <tr>
+                    <th align="left" colspan="2"><span style="font-size:12px;font-weight:500;">TÓM TẮT ĐƠN HÀNG</span>
+                    </th>
+                </tr>
+                <tr style="height:10px;"></tr>
+                <tr>
+                    <td><span style="font-size:12px;">Tạm tính</span></td>
+                    <td align="right"><span style="font-size:12px;">{{ params.subtotal }}</span></td>
+                </tr>
+                <tr>
+                    <td><span style="font-size:12px;">Phí vận chuyển</span></td>
+                    <td align="right"><span style="font-size:12px;">{{ params.shipping_subtotal }}</span></td>
+                </tr>
+                <tr style="height:10px;"></tr>
+                <tr>
+                    <td><span style="font-size:12px;font-weight:500;">TỔNG CỘNG</span></td>
+                    <td align="right"><span style="font-size:12px;font-weight:500;">{{ params.total }}</span></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <footer>
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin: 40px auto 0;">
+            <tbody>
+                <tr height="40px"></tr>
+                <tr>
+                    <td align="center"><span style="font-size:12px;color:#888888;">
+                            ©2025 <a href="https://fragile.club">fragile.club</a> · <a
+                                href="https://fragile.club/support">Điều khoản & Chính sách bảo mật</a>
+                        </span></td>
+                </tr>
+                <tr height="10px"></tr>
+                <tr>
+                    <td align="center"><span style="font-size:12px;color:#888888;">FRGL LLC - FRAGILE, 15757 SW 74th
+                            Ave, Tigard, Oregon 97224</span></td>
+                </tr>
+                <tr height="10px"></tr>
+            </tbody>
+        </table>
+    </footer>
+</body>

@@ -66,10 +66,31 @@ const autoCreateAndSendPromotionStep = createStep(
       return new StepResponse(null)
     }
 
-    // Skip if phone is Vietnamese (+84 or 84)
-    if (input.phone?.startsWith("+84") || input.phone?.startsWith("84")) {
-      logger.info(`[Brevo] Skipping welcome promotion for ${input.email}: VN phone`)
-      return new StepResponse(null)
+    // Skip if customer's country or phone prefix is in excluded list
+    const excludedCountries: string[] = Array.isArray(settings.promotion_excluded_countries)
+      ? settings.promotion_excluded_countries : []
+
+    if (excludedCountries.length > 0) {
+      // Phone prefix → country lookup (common countries)
+      const PHONE_PREFIXES: Record<string, string> = {
+        "+84": "vn", "+66": "th", "+82": "ko", "+81": "ja",
+        "+1": "us", "+44": "gb", "+86": "cn", "+91": "in",
+        "+65": "sg", "+60": "my", "+62": "id", "+63": "ph",
+        "+61": "au", "+64": "nz", "+49": "de", "+33": "fr",
+        "+39": "it", "+34": "es", "+7": "ru", "+55": "br",
+        "+52": "mx", "+971": "ae", "+966": "sa",
+        "+886": "tw", "+852": "hk", "+853": "mo",
+      }
+
+      // Check phone prefix
+      if (input.phone) {
+        for (const [prefix, cc] of Object.entries(PHONE_PREFIXES)) {
+          if (input.phone.startsWith(prefix) && excludedCountries.includes(cc)) {
+            logger.info(`[Brevo] Skipping welcome promotion for ${input.email}: excluded country ${cc} (phone ${prefix})`)
+            return new StepResponse(null)
+          }
+        }
+      }
     }
 
     try {

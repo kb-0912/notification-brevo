@@ -218,6 +218,42 @@ const BrevoSettingsPage = () => {
                                     {currencies.length === 0 && <Text className="text-ui-fg-subtle text-xs">No currencies found in store.</Text>}
                                 </div>
                             </div>
+                            <div className="col-span-2">
+                                <Label>Excluded Countries</Label>
+                                <Text className="text-ui-fg-subtle text-xs mb-2">Customers from these countries will NOT receive a promotion code. Checks shipping address country code & phone prefix.</Text>
+                                <div className="flex flex-wrap gap-1">
+                                    {[
+                                        { code: "vn", label: "🇻🇳 VN" },
+                                        { code: "th", label: "🇹🇭 TH" },
+                                        { code: "ko", label: "🇰🇷 KR" },
+                                        { code: "ja", label: "🇯🇵 JP" },
+                                        { code: "cn", label: "🇨🇳 CN" },
+                                        { code: "us", label: "🇺🇸 US" },
+                                        { code: "gb", label: "🇬🇧 GB" },
+                                        { code: "sg", label: "🇸🇬 SG" },
+                                        { code: "my", label: "🇲🇾 MY" },
+                                        { code: "id", label: "🇮🇩 ID" },
+                                        { code: "ph", label: "🇵🇭 PH" },
+                                        { code: "au", label: "🇦🇺 AU" },
+                                        { code: "in", label: "🇮🇳 IN" },
+                                        { code: "tw", label: "🇹🇼 TW" },
+                                        { code: "hk", label: "🇭🇰 HK" },
+                                    ].map((country) => {
+                                        const excluded = (Array.isArray(settings.promotion_excluded_countries) ? settings.promotion_excluded_countries : []) as string[]
+                                        const isExcluded = excluded.includes(country.code)
+                                        return (
+                                            <button key={country.code} type="button"
+                                                className={`px-2 py-1 rounded text-xs border transition-colors ${isExcluded ? "bg-red-100 border-red-300 text-red-700" : "bg-ui-bg-base border-ui-border-base text-ui-fg-subtle hover:bg-ui-bg-base-hover"}`}
+                                                onClick={() => {
+                                                    const next = isExcluded ? excluded.filter((c: string) => c !== country.code) : [...excluded, country.code]
+                                                    update("promotion_excluded_countries", next)
+                                                }}>
+                                                {country.label}{isExcluded ? " ✕" : ""}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -441,11 +477,13 @@ const BrevoSettingsPage = () => {
                             { value: "order.canceled", label: "Order Canceled" },
                             { value: "order.delivered", label: "Order Delivered" },
                             { value: "customer.created", label: "Customer Created" },
+                            { value: "promotion-new-customer", label: "Welcome Discount" },
                             { value: "shipment.confirmed", label: "Shipment Confirmed" },
                             { value: "cart.abandoned", label: "Cart Abandoned" },
                             { value: "cart.abandoned.discount", label: "Cart Abandoned (Discount)" },
                             { value: "review.request", label: "Review Request" },
                             { value: "winback", label: "Win-back" },
+                            { value: "promotion-expiry-reminder", label: "Promotion Expiry Reminder" },
                         ]
 
                         // Parse multilang_templates object into flat rows for UI

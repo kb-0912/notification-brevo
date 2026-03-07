@@ -31,6 +31,7 @@ const BrevoSettings = model.define("brevo_settings", {
   promotion_discount_value: model.number().default(10),
   promotion_expiry_days: model.number().default(30),
   promotion_excluded_currencies: model.json().nullable(),
+  promotion_excluded_countries: model.json().nullable(),  // e.g. ["vn","th"]
   promotion_code_prefix: model.text().default("WELCOME"),
 
   // ─── Discount Expiry Reminder ───

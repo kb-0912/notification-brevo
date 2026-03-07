@@ -159,6 +159,7 @@ class BrevoProviderService extends AbstractNotificationProviderService {
 						: [],
 					shipping_address: order.shipping_address,
 					billing_address: order.billing_address,
+					subtotal: this.humanPrice(order.subtotal, order.currency_code),
 					shipping_subtotal: this.humanPrice(order.shipping_subtotal, order.currency_code),
 					shipping_methods: order.shipping_methods || [],
 					payment_collections: order.payment_collections?.[0]?.payments?.map((p: any) => ({

@@ -23,6 +23,7 @@ const ALLOWED_FIELDS = new Set([
     "promotion_discount_value",
     "promotion_expiry_days",
     "promotion_excluded_currencies",
+    "promotion_excluded_countries",
     "promotion_code_prefix",
     "promotion_expiry_reminder_enabled",
     "promotion_expiry_reminder_template_id",
@@ -94,7 +95,7 @@ class BrevoSettingsModuleService extends MedusaService({
         // from a JSON field (e.g. removing a locale from multilang_templates)
         // has no effect — the old keys persist.
         // Fix: nullify JSON fields first, then set the new value.
-        const JSON_FIELDS = ["multilang_templates", "abandoned_cart_intervals", "promotion_excluded_currencies", "abandoned_cart_discount_excluded_currencies"]
+        const JSON_FIELDS = ["multilang_templates", "abandoned_cart_intervals", "promotion_excluded_currencies", "promotion_excluded_countries", "abandoned_cart_discount_excluded_currencies"]
         for (const field of JSON_FIELDS) {
             if (field in cleanData) {
                 await this.updateBrevoSettings({
