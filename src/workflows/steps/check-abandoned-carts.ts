@@ -101,8 +101,8 @@ const checkAbandonedCartsStep = createStep(
           // BUT skip if discount was already created (flag set from a previous failed email attempt)
           if (shouldCreateDiscount && !notifiedFlags[discountFlagKey]) {
             // Check excluded countries before creating discount
-            const excludedCountries: string[] = Array.isArray(settings.promotion_excluded_countries)
-              ? settings.promotion_excluded_countries : []
+            const excludedCountries: string[] = Array.isArray(settings.abandoned_cart_discount_excluded_countries)
+              ? settings.abandoned_cart_discount_excluded_countries : []
 
             let countryExcluded = false
             if (excludedCountries.length > 0) {

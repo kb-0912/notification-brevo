@@ -375,14 +375,14 @@ const BrevoSettingsPage = () => {
                                         <Label>Excluded Countries</Label>
                                         <Text className="text-ui-fg-subtle text-xs mb-2">Customers from these countries will NOT receive a discount code.</Text>
                                         <div className="flex items-center gap-2 mt-1">
-                                            <Button variant="secondary" size="small" onClick={() => setModal({ key: "promotion_excluded_countries", title: "Select Excluded Countries", options: countries })}>
+                                            <Button variant="secondary" size="small" onClick={() => setModal({ key: "abandoned_cart_discount_excluded_countries", title: "Select Excluded Countries", options: countries })}>
                                                 Select Countries
                                             </Button>
                                             <div className="flex flex-wrap gap-1">
-                                                {((settings.promotion_excluded_countries || []) as string[]).map((c: string) => (
+                                                {((settings.abandoned_cart_discount_excluded_countries || []) as string[]).map((c: string) => (
                                                     <Badge key={c} color="red" className="font-mono text-xs">{c.toUpperCase()}</Badge>
                                                 ))}
-                                                {(settings.promotion_excluded_countries || []).length === 0 && <Text className="text-ui-fg-subtle text-xs">None</Text>}
+                                                {(settings.abandoned_cart_discount_excluded_countries || []).length === 0 && <Text className="text-ui-fg-subtle text-xs">None</Text>}
                                             </div>
                                         </div>
                                     </div>

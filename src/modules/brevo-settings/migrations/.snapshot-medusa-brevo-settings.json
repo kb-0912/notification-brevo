@@ -359,6 +359,15 @@
           "nullable": true,
           "mappedType": "json"
         },
+        "abandoned_cart_discount_excluded_countries": {
+          "name": "abandoned_cart_discount_excluded_countries",
+          "type": "jsonb",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "json"
+        },
         "abandoned_cart_discount_code_prefix": {
           "name": "abandoned_cart_discount_code_prefix",
           "type": "text",

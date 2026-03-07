@@ -52,6 +52,7 @@ const BrevoSettings = model.define("brevo_settings", {
   abandoned_cart_discount_expires_hours: model.number().default(48),
   abandoned_cart_discount_template_id: model.text().nullable(),
   abandoned_cart_discount_excluded_currencies: model.json().nullable(),
+  abandoned_cart_discount_excluded_countries: model.json().nullable(),
   abandoned_cart_discount_code_prefix: model.text().default("COMEBACK"),
 
   // ─── Brevo Contact Sync ───
