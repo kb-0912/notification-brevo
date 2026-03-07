@@ -8,7 +8,6 @@ import {
 	Logger,
 } from "@medusajs/framework/types"
 import { BrevoProviderConfig } from "./types"
-import { BrevoClient } from "@getbrevo/brevo"
 
 class BrevoProviderService extends AbstractNotificationProviderService {
 	static identifier = "brevo"
@@ -32,6 +31,11 @@ class BrevoProviderService extends AbstractNotificationProviderService {
 			throw new MedusaError(MedusaError.Types.INVALID_DATA, "BREVO_FROM_EMAIL must be set")
 		}
 
+		// Lazy-load @getbrevo/brevo inside constructor — NOT top-level import.
+		// The SDK's Fern runtime.js reads navigator.userAgent at module load time,
+		// which crashes in Node.js if imported at the top of the file.
+		// eslint-disable-next-line @typescript-eslint/no-var-requires
+		const { BrevoClient } = require("@getbrevo/brevo")
 		this.brevo = new BrevoClient({ apiKey: this.options.apiKey })
 		this.logger.info(`[Brevo] Provider initialized successfully`)
 	}
