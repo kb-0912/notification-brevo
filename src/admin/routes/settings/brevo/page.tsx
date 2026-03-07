@@ -1,74 +1,10 @@
 import { defineRouteConfig } from "@medusajs/admin-sdk"
-import { Container, Heading, Text, Label, Input, Switch, Button, Badge, Select, Toaster, toast } from "@medusajs/ui"
+import { Container, Heading, Text, Label, Input, Switch, Button, Badge, Select, Toaster, toast, Drawer, Checkbox } from "@medusajs/ui"
 import { EnvelopeSolid } from "@medusajs/icons"
 import { useEffect, useState } from "react"
 
 type BrevoSettings = Record<string, any>
 type SelectOption = { value: string; label: string }
-
-/**
- * Reusable multi-select modal with search.
- */
-const MultiSelectModal = ({
-    title,
-    options,
-    selected,
-    onClose,
-    onSave,
-}: {
-    title: string
-    options: SelectOption[]
-    selected: string[]
-    onClose: () => void
-    onSave: (values: string[]) => void
-}) => {
-    const [search, setSearch] = useState("")
-    const [checked, setChecked] = useState<Set<string>>(new Set(selected))
-
-    const filtered = options.filter((o) =>
-        o.label.toLowerCase().includes(search.toLowerCase()) ||
-        o.value.toLowerCase().includes(search.toLowerCase())
-    )
-
-    const toggle = (val: string) => {
-        setChecked((prev) => {
-            const next = new Set(prev)
-            next.has(val) ? next.delete(val) : next.add(val)
-            return next
-        })
-    }
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-            <div className="bg-white rounded-xl shadow-2xl w-[420px] max-h-[520px] flex flex-col" onClick={(e) => e.stopPropagation()}>
-                <div className="px-5 py-4 border-b">
-                    <Text className="font-semibold text-base">{title}</Text>
-                    <Input className="mt-2" placeholder="Search..." value={search}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)} />
-                </div>
-                <div className="flex-1 overflow-y-auto px-5 py-3">
-                    {filtered.length === 0 && <Text className="text-ui-fg-subtle text-sm">No results</Text>}
-                    {filtered.map((opt) => (
-                        <label key={opt.value} className="flex items-center gap-3 py-1.5 cursor-pointer hover:bg-ui-bg-base-hover rounded px-2 -mx-2">
-                            <input type="checkbox" className="accent-ui-fg-interactive w-4 h-4"
-                                checked={checked.has(opt.value)}
-                                onChange={() => toggle(opt.value)} />
-                            <span className="text-sm">{opt.label}</span>
-                            <span className="text-xs text-ui-fg-subtle font-mono ml-auto">{opt.value.toUpperCase()}</span>
-                        </label>
-                    ))}
-                </div>
-                <div className="px-5 py-3 border-t flex items-center justify-between">
-                    <Text className="text-xs text-ui-fg-subtle">{checked.size} selected</Text>
-                    <div className="flex gap-2">
-                        <Button variant="secondary" size="small" onClick={onClose}>Cancel</Button>
-                        <Button size="small" onClick={() => { onSave(Array.from(checked)); onClose() }}>Apply</Button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    )
-}
 
 const BrevoSettingsPage = () => {
     const [settings, setSettings] = useState<BrevoSettings | null>(null)
@@ -78,6 +14,7 @@ const BrevoSettingsPage = () => {
     const [currencies, setCurrencies] = useState<SelectOption[]>([])
     const [countries, setCountries] = useState<SelectOption[]>([])
     const [modal, setModal] = useState<{ key: string; title: string; options: SelectOption[] } | null>(null)
+    const [drawerSearch, setDrawerSearch] = useState("")
 
     useEffect(() => {
         Promise.all([
@@ -764,16 +701,61 @@ const BrevoSettingsPage = () => {
                 </div>
             </Container >
 
-            {/* Multi-select Modal */}
-            {modal && settings && (
-                <MultiSelectModal
-                    title={modal.title}
-                    options={modal.options}
-                    selected={(settings[modal.key] || []) as string[]}
-                    onClose={() => setModal(null)}
-                    onSave={(values) => update(modal.key, values)}
-                />
-            )}
+            {/* Multi-select Drawer */}
+            <Drawer open={!!modal} onOpenChange={(open) => { if (!open) { setModal(null); setDrawerSearch("") } }}>
+                <Drawer.Content>
+                    <Drawer.Header>
+                        <Drawer.Title>{modal?.title || ""}</Drawer.Title>
+                    </Drawer.Header>
+                    <Drawer.Body className="overflow-y-auto">
+                        {modal && (() => {
+                            const [search, setSearch] = [drawerSearch, setDrawerSearch]
+                            const currentSelected = new Set<string>((settings?.[modal.key] || []) as string[])
+                            const filtered = modal.options.filter((o) =>
+                                o.label.toLowerCase().includes(search.toLowerCase()) ||
+                                o.value.toLowerCase().includes(search.toLowerCase())
+                            )
+                            return (
+                                <div className="space-y-1">
+                                    <Input placeholder="Search..." value={search}
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)} />
+                                    <div className="mt-3 space-y-0.5">
+                                        {filtered.length === 0 && <Text className="text-ui-fg-subtle text-sm py-4 text-center">No results</Text>}
+                                        {filtered.map((opt) => {
+                                            const isChecked = currentSelected.has(opt.value)
+                                            return (
+                                                <label key={opt.value}
+                                                    className="flex items-center gap-3 py-2 px-3 cursor-pointer hover:bg-ui-bg-base-hover rounded-lg">
+                                                    <Checkbox
+                                                        checked={isChecked}
+                                                        onCheckedChange={() => {
+                                                            const arr = (settings?.[modal.key] || []) as string[]
+                                                            const next = isChecked
+                                                                ? arr.filter((c: string) => c !== opt.value)
+                                                                : [...arr, opt.value]
+                                                            update(modal.key, next)
+                                                        }}
+                                                    />
+                                                    <span className="text-sm flex-1">{opt.label}</span>
+                                                    <span className="text-xs text-ui-fg-subtle font-mono">{opt.value.toUpperCase()}</span>
+                                                </label>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            )
+                        })()}
+                    </Drawer.Body>
+                    <Drawer.Footer>
+                        <div className="flex items-center justify-between w-full">
+                            <Text className="text-xs text-ui-fg-subtle">
+                                {((settings?.[modal?.key || ""] || []) as string[]).length} selected
+                            </Text>
+                            <Button variant="secondary" size="small" onClick={() => setModal(null)}>Done</Button>
+                        </div>
+                    </Drawer.Footer>
+                </Drawer.Content>
+            </Drawer>
         </>
     )
 }
