@@ -4,8 +4,19 @@ import { sendAbandonedCartWorkflow } from "../send-abandoned-cart"
 import { Modules } from "@medusajs/framework/utils"
 
 /**
- * Step: Check all incomplete carts for abandoned cart conditions and send emails.
- * On the FINAL interval, optionally creates a discount code.
+ * Abandoned cart email timing logic:
+ *
+ * intervals = [24, 48, 72] means:
+ *   - Email #1: when cart has been inactive for 24h  (based on item.updated_at)
+ *   - Email #2: 48h AFTER email #1 was sent
+ *   - Email #3: 72h AFTER email #2 was sent
+ *
+ * Flags stored in cart.metadata as ISO timestamps (not booleans):
+ *   - abandonedcart_mail_1: "2026-03-08T10:00:00.000Z"  ← when email #1 was sent
+ *   - abandonedcart_mail_2: "2026-03-10T10:00:00.000Z"  ← when email #2 was sent
+ *
+ * Query uses created_at (immutable) so metadata updates don't affect the filter.
+ * Old carts with boolean flags (legacy) are handled gracefully.
  */
 const checkAbandonedCartsStep = createStep(
   "check-abandoned-carts-step",
@@ -36,16 +47,16 @@ const checkAbandonedCartsStep = createStep(
     }
 
     const sortedIntervals = [...intervals].sort((a, b) => a - b)
-    const maxInterval = sortedIntervals[sortedIntervals.length - 1]
-    const maxHours = maxInterval + 24
-
     logger.info(`[Brevo] Checking abandoned carts | intervals=[${sortedIntervals.join(", ")}]h`)
 
     const now = new Date()
-    const cutoffDate = new Date(now.getTime() - maxHours * 60 * 60 * 1000)
-    const checkTimes = sortedIntervals.map(
-      (hours) => new Date(now.getTime() - hours * 60 * 60 * 1000)
-    )
+
+    // Use created_at (immutable) so updating metadata doesn't remove cart from future queries.
+    // Find carts created at least intervals[0] hours ago — broad pre-filter.
+    // Precise timing is enforced below in per-cart logic.
+    const minCutoff = new Date(now.getTime() - sortedIntervals[0] * 60 * 60 * 1000)
+    // Only check carts from the last 7 days to avoid scanning ancient carts
+    const maxAge = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
 
     const { data: carts } = await query.graph({
       entity: "cart",
@@ -58,7 +69,7 @@ const checkAbandonedCartsStep = createStep(
       filters: {
         completed_at: null,
         email: { $ne: null },
-        updated_at: { $lte: cutoffDate.toISOString() },
+        created_at: { $lte: minCutoff.toISOString(), $gte: maxAge.toISOString() },
       },
     })
 
@@ -78,12 +89,38 @@ const checkAbandonedCartsStep = createStep(
       for (let i = 0; i < sortedIntervals.length; i++) {
         const flagKey = `abandonedcart_mail_${i + 1}`
         const discountFlagKey = `abandonedcart_discount_${i + 1}`
-        if (notifiedFlags[flagKey]) continue
-        if (lastActivity >= checkTimes[i]) continue
+        const flagValue = notifiedFlags[flagKey]
+
+        // Skip interval already sent (flag is ISO timestamp string or legacy boolean)
+        if (flagValue) continue
+
+        // ── Timing check ────────────────────────────────────────────────────
+        let canSendAfter: Date
+
+        if (i === 0) {
+          // Email #1: send when cart has been inactive for intervals[0] hours
+          // "inactive" = max(item.updated_at) + intervals[0]h <= now
+          canSendAfter = new Date(lastActivity.getTime() + sortedIntervals[0] * 60 * 60 * 1000)
+        } else {
+          // Email #2+: send intervals[i] hours AFTER the previous email was sent
+          const prevFlagKey = `abandonedcart_mail_${i}`
+          const prevSentValue = notifiedFlags[prevFlagKey]
+
+          // Previous email must exist as ISO timestamp (not boolean legacy flag)
+          if (!prevSentValue || typeof prevSentValue !== "string") continue
+
+          const prevSentDate = new Date(prevSentValue)
+          if (isNaN(prevSentDate.getTime())) continue
+
+          canSendAfter = new Date(prevSentDate.getTime() + sortedIntervals[i] * 60 * 60 * 1000)
+        }
+
+        if (now < canSendAfter) continue
+        // ────────────────────────────────────────────────────────────────────
 
         const emailsSent = Object.keys(notifiedFlags)
           .filter((k) => k.startsWith("abandonedcart_mail_"))
-          .filter((k) => notifiedFlags[k] === true).length
+          .filter((k) => !!notifiedFlags[k]).length
         if (emailsSent >= (settings.abandoned_cart_max_emails || sortedIntervals.length)) continue
 
         const isFinalEmail = (i === sortedIntervals.length - 1)
@@ -116,7 +153,7 @@ const checkAbandonedCartsStep = createStep(
               // Check phone prefix
               if (!countryExcluded && cart.shipping_address?.phone) {
                 const PHONE_PREFIXES: Record<string, string> = {
-                  "+84": "vn", "+66": "th", "+82": "ko", "+81": "ja",
+                  "+84": "vn", "+66": "th", "+82": "kr", "+81": "jp",
                   "+1": "us", "+44": "gb", "+86": "cn", "+91": "in",
                   "+65": "sg", "+60": "my", "+62": "id", "+63": "ph",
                 }
@@ -226,11 +263,11 @@ const checkAbandonedCartsStep = createStep(
             },
           })
 
-          // Email sent successfully — mark email flag
+          // Store ISO timestamp (not boolean) so subsequent emails can calculate timing
           await cartModuleService.updateCarts(cart.id, {
             metadata: {
               ...notifiedFlags,
-              [flagKey]: true,
+              [flagKey]: new Date().toISOString(),
             },
           })
 

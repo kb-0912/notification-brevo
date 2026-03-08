@@ -73,7 +73,7 @@ const autoCreateAndSendPromotionStep = createStep(
     if (excludedCountries.length > 0) {
       // Phone prefix → country lookup (common countries)
       const PHONE_PREFIXES: Record<string, string> = {
-        "+84": "vn", "+66": "th", "+82": "ko", "+81": "ja",
+        "+84": "vn", "+66": "th", "+82": "kr", "+81": "jp",
         "+1": "us", "+44": "gb", "+86": "cn", "+91": "in",
         "+65": "sg", "+60": "my", "+62": "id", "+63": "ph",
         "+61": "au", "+64": "nz", "+49": "de", "+33": "fr",

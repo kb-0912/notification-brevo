@@ -13,6 +13,6 @@ export default async function checkAbandonedCartsJob(container: MedusaContainer)
 
 export const config = {
   name: "check-abandoned-carts",
-  // Cron expression: run every 15 minutes
-  schedule: "*/15 * * * *",
+  // Cron expression: run every minutes
+  schedule: "* * * * *",
 }
