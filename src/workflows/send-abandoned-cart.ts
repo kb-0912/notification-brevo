@@ -58,6 +58,7 @@ export const sendAbandonedCartWorkflow = createWorkflow(
     const locale = resolveLocaleStep({
       customerMetadata: carts[0].customer?.metadata,
       cartMetadata: carts[0].metadata,
+      phone: carts[0].customer?.phone,
     })
 
     const template = input._useDiscountTemplate ? "cart.abandoned.discount" : "cart.abandoned"

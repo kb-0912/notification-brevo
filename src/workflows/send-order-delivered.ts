@@ -35,7 +35,7 @@ export const sendOrderDeliveredWorkflow = createWorkflow(
                 "order.email",
                 "order.shipping_address.*",
                 "order.items.*",
-                "order.customer.metadata",
+                "order.customer.metadata", "order.customer.phone",
                 "labels.*",
             ],
             filters: { id },
@@ -43,6 +43,8 @@ export const sendOrderDeliveredWorkflow = createWorkflow(
 
         const locale = resolveLocaleStep({
             customerMetadata: fulfillments[0].order?.customer?.metadata,
+            phone: fulfillments[0].order?.customer?.phone || fulfillments[0].order?.shipping_address?.phone,
+            countryCode: fulfillments[0].order?.shipping_address?.country_code,
         })
 
         const notificationData: CreateNotificationDTO[] = [

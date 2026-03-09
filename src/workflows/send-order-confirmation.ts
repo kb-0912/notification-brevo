@@ -43,7 +43,7 @@ export const sendOrderConfirmationWorkflow = createWorkflow(
 				"billing_address.*", "shipping_address.*",
 				"payment_collections.*", "payment_collections.payments.*",
 				"fulfillments.*", "shipping_methods.*",
-				"customer.metadata",
+				"customer.metadata", "customer.phone",
 			],
 			filters: { id },
 		})
@@ -51,6 +51,8 @@ export const sendOrderConfirmationWorkflow = createWorkflow(
 		// Resolve customer preferred language
 		const locale = resolveLocaleStep({
 			customerMetadata: orders[0].customer?.metadata,
+			phone: orders[0].customer?.phone || orders[0].shipping_address?.phone,
+			countryCode: orders[0].shipping_address?.country_code,
 		})
 
 		// Send email notification

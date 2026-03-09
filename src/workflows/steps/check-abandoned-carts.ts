@@ -124,7 +124,7 @@ const checkAbandonedCartsStep = createStep(
           .filter((k) => !!notifiedFlags[k]).length
         if (emailsSent >= (settings.abandoned_cart_max_emails || sortedIntervals.length)) continue
 
-        // ── Country exclusion: skip ENTIRE email for excluded countries ──
+        // ── Country exclusion: only skip DISCOUNT (coupon), NOT the email ──
         const excludedCountries: string[] = Array.isArray(settings.abandoned_cart_discount_excluded_countries)
           ? settings.abandoned_cart_discount_excluded_countries : []
 
@@ -134,7 +134,7 @@ const checkAbandonedCartsStep = createStep(
           const cc = cart.shipping_address?.country_code?.toLowerCase()
           if (cc && excludedCountries.includes(cc)) {
             countryExcluded = true
-            logger.info(`[Brevo] Skipping abandoned cart email for ${cart.email}: excluded country ${cc} (shipping address)`)
+            logger.info(`[Brevo] Country ${cc} excluded from discount for ${cart.email} (shipping address)`)
           }
 
           // 2. Check region countries (fallback when no shipping address)
@@ -143,12 +143,12 @@ const checkAbandonedCartsStep = createStep(
             // If region has only 1 country, we can be certain
             if (regionCountries.length === 1 && excludedCountries.includes(regionCountries[0])) {
               countryExcluded = true
-              logger.info(`[Brevo] Skipping abandoned cart email for ${cart.email}: excluded country ${regionCountries[0]} (region)`)
+              logger.info(`[Brevo] Country ${regionCountries[0]} excluded from discount for ${cart.email} (region)`)
             }
-            // If region has multiple countries but ALL are excluded, also skip
+            // If region has multiple countries but ALL are excluded, also skip discount
             if (!countryExcluded && regionCountries.length > 0 && regionCountries.every(rc => excludedCountries.includes(rc))) {
               countryExcluded = true
-              logger.info(`[Brevo] Skipping abandoned cart email for ${cart.email}: all region countries excluded [${regionCountries.join(", ")}]`)
+              logger.info(`[Brevo] All region countries excluded from discount for ${cart.email} [${regionCountries.join(", ")}]`)
             }
           }
 
@@ -162,18 +162,17 @@ const checkAbandonedCartsStep = createStep(
             for (const [prefix, pcc] of Object.entries(PHONE_PREFIXES)) {
               if (cart.shipping_address.phone.startsWith(prefix) && excludedCountries.includes(pcc)) {
                 countryExcluded = true
-                logger.info(`[Brevo] Skipping abandoned cart email for ${cart.email}: excluded country ${pcc} (phone ${prefix})`)
+                logger.info(`[Brevo] Country ${pcc} excluded from discount for ${cart.email} (phone ${prefix})`)
                 break
               }
             }
           }
         }
-
-        if (countryExcluded) continue
         // ────────────────────────────────────────────────────────────────────
 
         const isFinalEmail = (i === sortedIntervals.length - 1)
-        const shouldCreateDiscount = isFinalEmail && settings.abandoned_cart_discount_enabled
+        // If country is excluded → never create discount, even on final email
+        const shouldCreateDiscount = isFinalEmail && settings.abandoned_cart_discount_enabled && !countryExcluded
 
         logger.info(
           `[Brevo] Sending abandoned cart email #${i + 1} to ${cart.email} ` +

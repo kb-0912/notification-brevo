@@ -38,16 +38,12 @@ const autoCreateAndSendPromotionStep = createStep(
   "auto-create-and-send-promotion",
   async (input: {
     customerId: string
-    email: string
-    firstName?: string
-    lastName?: string
-    phone?: string
-    hasAccount?: boolean
-    currencyCode?: string
     locale?: string
   }, { container }) => {
     const logger = container.resolve("logger")
+    const Modules = await import("@medusajs/framework/utils").then(m => m.Modules)
 
+    // ── Load settings ──
     let settings: any
     try {
       const brevoSettingsService: any = container.resolve(BREVO_SETTINGS_MODULE)
@@ -60,42 +56,68 @@ const autoCreateAndSendPromotionStep = createStep(
       return new StepResponse(null)
     }
 
-    // Skip if customer doesn't have an account (guest)
-    if (!input.hasAccount) {
-      logger.info(`[Brevo] Skipping welcome promotion for ${input.email}: no account`)
+    // ── Load customer directly from DB (proven pattern from old subscriber) ──
+    const customerModuleService: any = container.resolve(Modules.CUSTOMER)
+    let customer: any
+    try {
+      customer = await customerModuleService.retrieveCustomer(input.customerId)
+    } catch (e: any) {
+      logger.error(`[Brevo] Could not retrieve customer ${input.customerId}: ${e?.message}`)
       return new StepResponse(null)
     }
 
-    // Skip if customer's country or phone prefix is in excluded list
-    const excludedCountries: string[] = Array.isArray(settings.promotion_excluded_countries)
-      ? settings.promotion_excluded_countries : []
+    if (!customer.has_account) {
+      logger.info(`[Brevo] Skipping welcome promotion for ${customer.email}: no account`)
+      return new StepResponse(null)
+    }
 
-    if (excludedCountries.length > 0) {
-      // Phone prefix → country lookup (common countries)
+    // ── Country exclusion: check phone prefix ──
+    // Parse excluded countries robustly (handle both array and stringified JSON)
+    let excludedCountries: string[] = []
+    const rawExcluded = settings.promotion_excluded_countries
+    if (Array.isArray(rawExcluded)) {
+      excludedCountries = rawExcluded
+    } else if (typeof rawExcluded === "string") {
+      try { excludedCountries = JSON.parse(rawExcluded) } catch { /* ignore */ }
+    }
+
+    logger.info(`[Brevo] Welcome promotion check | email=${customer.email} | phone=${customer.phone} | excludedCountries=${JSON.stringify(excludedCountries)}`)
+
+    if (excludedCountries.length > 0 && customer.phone) {
+      // Phone prefix → country (match both +84 and 84 formats)
       const PHONE_PREFIXES: Record<string, string> = {
-        "+84": "vn", "+66": "th", "+82": "kr", "+81": "jp",
-        "+1": "us", "+44": "gb", "+86": "cn", "+91": "in",
-        "+65": "sg", "+60": "my", "+62": "id", "+63": "ph",
-        "+61": "au", "+64": "nz", "+49": "de", "+33": "fr",
-        "+39": "it", "+34": "es", "+7": "ru", "+55": "br",
-        "+52": "mx", "+971": "ae", "+966": "sa",
+        "+84": "vn", "84": "vn",
+        "+66": "th", "66": "th",
+        "+82": "kr", "82": "kr",
+        "+81": "jp", "81": "jp",
+        "+1": "us",
+        "+44": "gb", "44": "gb",
+        "+86": "cn", "86": "cn",
+        "+91": "in", "91": "in",
+        "+65": "sg", "65": "sg",
+        "+60": "my", "60": "my",
+        "+62": "id", "62": "id",
+        "+63": "ph", "63": "ph",
+        "+61": "au", "+64": "nz",
+        "+49": "de", "+33": "fr",
+        "+39": "it", "+34": "es",
+        "+971": "ae", "+966": "sa",
         "+886": "tw", "+852": "hk", "+853": "mo",
       }
 
-      // Check phone prefix
-      if (input.phone) {
-        for (const [prefix, cc] of Object.entries(PHONE_PREFIXES)) {
-          if (input.phone.startsWith(prefix) && excludedCountries.includes(cc)) {
-            logger.info(`[Brevo] Skipping welcome promotion for ${input.email}: excluded country ${cc} (phone ${prefix})`)
-            return new StepResponse(null)
-          }
+      // Sort by prefix length descending to match longer prefixes first (+886 before +8)
+      const sortedPrefixes = Object.entries(PHONE_PREFIXES).sort((a, b) => b[0].length - a[0].length)
+      for (const [prefix, cc] of sortedPrefixes) {
+        if (customer.phone.startsWith(prefix) && excludedCountries.includes(cc)) {
+          logger.info(`[Brevo] Skipping welcome promotion for ${customer.email}: excluded country ${cc} (phone ${prefix})`)
+          return new StepResponse(null)
         }
       }
     }
 
+    // ── Create promotion ──
     try {
-      const promotionService: any = container.resolve("promotion")
-      const customerService: any = container.resolve("customer")
+      const promotionService: any = container.resolve(Modules.PROMOTION)
 
       const discountType = settings.promotion_discount_type || "percentage"
       const discountValue = settings.promotion_discount_value || 10
@@ -105,8 +127,8 @@ const autoCreateAndSendPromotionStep = createStep(
         ? settings.promotion_excluded_currencies : []
       const codePrefix = (settings.promotion_code_prefix || "WELCOME").toUpperCase()
 
-      // Generate unique 8-char alphanumeric suffix
-      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // no I/O/0/1 to avoid confusion
+      // Generate unique code (same format as old subscriber: PREFIX-XXXXXXXX)
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
       let suffix = ""
       for (let i = 0; i < 8; i++) suffix += chars[Math.floor(Math.random() * chars.length)]
       const code = `${codePrefix}-${suffix}`
@@ -115,10 +137,8 @@ const autoCreateAndSendPromotionStep = createStep(
 
       // Build promotion rules
       const rules: any[] = [
-        // Lock to this specific customer
-        { attribute: "customer_id", operator: "eq", values: [input.customerId] },
+        { attribute: "customer_id", operator: "eq", values: [customer.id] },
       ]
-      // Exclude currencies
       for (const cur of excludedCurrencies) {
         rules.push({ attribute: "currency_code", operator: "ne", values: [cur] })
       }
@@ -130,7 +150,7 @@ const autoCreateAndSendPromotionStep = createStep(
         status: "active",
         rules,
         campaign: {
-          name: `Welcome - ${input.email}`,
+          name: `Welcome - ${customer.email} - ${customer.phone}`,
           campaign_identifier: `welcome-${code}`,
           starts_at: startsAt,
           ends_at: endsAt,
@@ -141,29 +161,29 @@ const autoCreateAndSendPromotionStep = createStep(
           value: discountValue,
           target_type: "order",
           max_quantity: 1,
-          currency_code: isPercentage ? undefined : (input.currencyCode || "usd"),
+          currency_code: isPercentage ? undefined : (customer.currency_code || "usd"),
         },
       })
 
       // Store in customer metadata for expiry reminder tracking
-      await customerService.updateCustomers(input.customerId, {
+      await customerModuleService.updateCustomers(customer.id, {
         metadata: {
           welcome_promotion_code: code,
           welcome_promotion_expires_at: endsAt.toISOString(),
         },
       })
 
-      logger.info(`[Brevo] Created welcome promotion ${code} for ${input.email}`)
+      logger.info(`[Brevo] Created welcome promotion ${code} for ${customer.email}`)
 
       // Send the promotion email
       const notificationService: any = container.resolve("notification")
       await notificationService.createNotifications({
-        to: input.email,
+        to: customer.email,
         channel: "email",
         template: "promotion-new-customer",
         data: {
-          first_name: input.firstName,
-          last_name: input.lastName,
+          first_name: customer.first_name,
+          last_name: customer.last_name,
           promotion_code: code,
           discount_value: discountValue,
           discount_type: discountType,
@@ -173,7 +193,7 @@ const autoCreateAndSendPromotionStep = createStep(
         },
       })
 
-      logger.info(`[Brevo] Promotion email sent to ${input.email} with code ${code}`)
+      logger.info(`[Brevo] Promotion email sent to ${customer.email} with code ${code}`)
       return new StepResponse({ promotion_code: code })
     } catch (error: any) {
       logger.error(`[Brevo] Auto-create promotion failed: ${error?.message}`)
@@ -196,6 +216,7 @@ export const sendCustomerCreatedWorkflow = createWorkflow(
     // Resolve customer preferred language
     const locale = resolveLocaleStep({
       customerMetadata: customers[0].metadata,
+      phone: customers[0].phone,
     })
 
     const notification = sendNotificationStep([
@@ -229,11 +250,6 @@ export const sendCustomerCreatedWorkflow = createWorkflow(
     // Auto-create welcome promotion + send email (single step)
     autoCreateAndSendPromotionStep({
       customerId: customers[0].id,
-      email: customers[0].email,
-      firstName: customers[0].first_name,
-      lastName: customers[0].last_name,
-      phone: customers[0].phone,
-      hasAccount: customers[0].has_account,
       locale,
     })
 

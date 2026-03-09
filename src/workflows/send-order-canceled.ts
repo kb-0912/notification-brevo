@@ -36,13 +36,15 @@ export const sendOrderCanceledWorkflow = createWorkflow(
       fields: [
         "id", "email", "display_id",
         "shipping_address.*", "billing_address.*",
-        "customer.metadata",
+        "customer.metadata", "customer.phone",
       ],
       filters: { id },
     })
 
     const locale = resolveLocaleStep({
       customerMetadata: orders[0].customer?.metadata,
+      phone: orders[0].customer?.phone || orders[0].shipping_address?.phone,
+      countryCode: orders[0].shipping_address?.country_code,
     })
 
     const notification = sendNotificationStep([
