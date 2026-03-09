@@ -3,6 +3,7 @@ import {
   createStep,
   WorkflowResponse,
   StepResponse,
+  transform,
 } from "@medusajs/framework/workflows-sdk"
 import { useQueryGraphStep } from "@medusajs/medusa/core-flows"
 import { sendNotificationStep } from "./steps/send-notification"
@@ -61,24 +62,32 @@ export const sendAbandonedCartWorkflow = createWorkflow(
       phone: carts[0].customer?.phone,
     })
 
-    const template = input._useDiscountTemplate ? "cart.abandoned.discount" : "cart.abandoned"
+    // IMPORTANT: Use transform() to resolve proxy values before conditionals.
+    // input._useDiscountTemplate is a Medusa workflow proxy — always truthy in JS.
+    // transform() resolves the actual runtime value so we can branch correctly.
+    const notificationData = transform(
+      { input, cart: carts[0], settings, locale },
+      (data) => {
+        const template = data.input._useDiscountTemplate
+          ? "cart.abandoned.discount"
+          : "cart.abandoned"
 
-    const notificationData: CreateNotificationDTO[] = [
-      {
-        to: carts[0].email,
-        channel: "email",
-        template,
-        data: {
-          cart: carts[0],
-          promotion_code: input.promotion_code,
-          discount_value: input.discount_value,
-          discount_type: input.discount_type,
-          discount_expires_at: input.discount_expires_at,
-          _settings: settings,
-          _locale: locale,
-        },
-      },
-    ]
+        return [{
+          to: data.cart.email,
+          channel: "email",
+          template,
+          data: {
+            cart: data.cart,
+            promotion_code: data.input.promotion_code,
+            discount_value: data.input.discount_value,
+            discount_type: data.input.discount_type,
+            discount_expires_at: data.input.discount_expires_at,
+            _settings: data.settings,
+            _locale: data.locale,
+          },
+        }] as CreateNotificationDTO[]
+      }
+    )
 
     const notification = sendNotificationStep(notificationData)
     return new WorkflowResponse(notification)

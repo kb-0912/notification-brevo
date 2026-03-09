@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.1.1] - 2026-03-09
+
+### Fixed
+
+- **Critical: Abandoned cart always using discount template**. `input._useDiscountTemplate` is a Medusa workflow proxy object — always truthy in JS ternary. Used `transform()` to resolve the actual runtime boolean value before selecting template. This caused ALL abandoned cart emails to use `cart.abandoned.discount` instead of `cart.abandoned`.
+
 ## [2.1.0] - 2026-03-09
 
 ### Fixed
